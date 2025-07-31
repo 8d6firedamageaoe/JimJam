@@ -1,0 +1,61 @@
+<!-- static/index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-User ChatGPT</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 30px auto; padding: 20px; background: #f4f4f4; }
+    #chat { border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; background: white; }
+    .msg { margin: 10px 0; }
+    .user { font-weight: bold; color: #333; }
+    .assistant { color: #0066cc; }
+  </style>
+</head>
+<body>
+  <h2>ChatGPT Multi-User Chat</h2>
+  <div id="chat"></div>
+  <br>
+  <input type="text" id="input" placeholder="Type your message..." style="width: 80%;">
+  <button onclick="sendMessage()">Send</button>
+
+  <script>
+    let userId = localStorage.getItem("userId");
+    const chatBox = document.getElementById("chat");
+
+    async function initSession() {
+      if (!userId) {
+        const res = await fetch("http://localhost:8000/start");
+        const data = await res.json();
+        userId = data.user_id;
+        localStorage.setItem("userId", userId);
+        chatBox.innerHTML += `<div class='msg'>New session started. User ID: <code>${userId}</code></div>`;
+      }
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById("input");
+      const message = input.value;
+      if (!message.trim()) return;
+
+      chatBox.innerHTML += `<div class='msg user'>You: ${message}</div>`;
+      input.value = "";
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      const res = await fetch("http://localhost:8000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, message: message })
+      });
+
+      const data = await res.json();
+      chatBox.innerHTML += `<div class='msg assistant'>GPT: ${data.response}</div>`;
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    initSession();
+  </script>
+</body>
+</html>

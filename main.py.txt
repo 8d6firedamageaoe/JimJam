@@ -1,0 +1,61 @@
+# main.py
+
+from fastapi import FastAPI, Request, HTTPException
+from pydantic import BaseModel
+from typing import Dict, List
+import openai
+import uuid
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+openai.api_key = os.getenv("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")
+
+app = FastAPI()
+
+# In-memory store for user sessions
+user_sessions: Dict[str, List[Dict[str, str]]] = {}
+
+class ChatRequest(BaseModel):
+    user_id: str
+    message: str
+
+class ChatResponse(BaseModel):
+    response: str
+    user_id: str
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(chat_req: ChatRequest):
+    user_id = chat_req.user_id
+    message = chat_req.message
+
+    if user_id not in user_sessions:
+        user_sessions[user_id] = []
+
+    # Add user's message
+    user_sessions[user_id].append({"role": "user", "content": message})
+
+    # Get response from OpenAI
+    try:
+        completion = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=user_sessions[user_id],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    reply = completion["choices"][0]["message"]
+    user_sessions[user_id].append(reply)
+
+    return ChatResponse(response=reply["content"], user_id=user_id)
+
+@app.get("/start")
+def start_new_session():
+    user_id = str(uuid.uuid4())
+    user_sessions[user_id] = []
+    return {"user_id": user_id, "message": "New session started."}
+
+@app.get("/history/{user_id}")
+def get_history(user_id: str):
+    return user_sessions.get(user_id, [])
