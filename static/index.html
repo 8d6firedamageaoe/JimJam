@@ -1,0 +1,43 @@
+<!-- static/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat with GPT</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+      max-width: 600px;
+      margin: auto;
+    }
+    .chat-box {
+      border: 1px solid #ccc;
+      padding: 1rem;
+      height: 300px;
+      overflow-y: scroll;
+      margin-bottom: 1rem;
+    }
+    .user-msg {
+      color: blue;
+    }
+    .bot-msg {
+      color: green;
+    }
+  </style>
+</head>
+<body>
+  <h1>Chat with GPT</h1>
+  <div class="chat-box" id="chatBox"></div>
+  <form id="chatForm">
+    <input type="text" id="userInput" placeholder="Type your message here" style="width: 80%" />
+    <button type="submit">Send</button>
+  </form>
+
+  <script>
+    const chatBox = document.getElementById("chatBox");
+    const chatForm = document.getElementById("chatForm");
+    const userInput = document.getElementById("userInput");
+
+    chatForm.addEventListener("subm
