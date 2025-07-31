@@ -1,5 +1,5 @@
 fastapi
 uvicorn[standard]
-openaiopenai==0.28
+openai==0.28
 python-dotenv
 Jinja2
