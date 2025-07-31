@@ -32,6 +32,7 @@ async def chat(request: Request):
     try:
         data = await request.json()
         user_input = data.get("message", "")
+        print(f"[DEBUG] Received message: {user_input}")
 
         response = openai.ChatCompletion.create(
             model="gpt-4",
@@ -42,7 +43,10 @@ async def chat(request: Request):
         )
 
         reply = response.choices[0].message["content"]
+        print(f"[DEBUG] GPT reply: {reply}")
         return {"response": reply}
 
     except Exception as e:
+        print(f"[ERROR] {e}")
         return {"response": f"Error: {str(e)}"}
+
