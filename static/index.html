@@ -1,4 +1,3 @@
-<!-- static/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -30,14 +29,47 @@
 <body>
   <h1>Chat with GPT</h1>
   <div class="chat-box" id="chatBox"></div>
-  <form id="chatForm">
-    <input type="text" id="userInput" placeholder="Type your message here" style="width: 80%" />
-    <button type="submit">Send</button>
-  </form>
+  <input type="text" id="userInput" placeholder="Type your message..." style="width: 80%;" />
+  <button id="sendBtn">Send</button>
 
   <script>
     const chatBox = document.getElementById("chatBox");
-    const chatForm = document.getElementById("chatForm");
+    const sendBtn = document.getElementById("sendBtn");
     const userInput = document.getElementById("userInput");
 
-    chatForm.addEventListener("subm
+    sendBtn.addEventListener("click", sendMessage);
+    userInput.addEventListener("keypress", function(e) {
+      if (e.key === "Enter") sendMessage();
+    });
+
+    async function sendMessage() {
+      const message = userInput.value.trim();
+      if (!message) return;
+
+      appendMessage("You", message, "user-msg");
+      userInput.value = "";
+
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message })
+        });
+
+        const data = await response.json();
+        appendMessage("GPT", data.response, "bot-msg");
+      } catch (error) {
+        appendMessage("Error", error.toString(), "bot-msg");
+      }
+    }
+
+    function appendMessage(sender, message, className) {
+      const msgElem = document.createElement("div");
+      msgElem.classList.add(className);
+      msgElem.innerHTML = `<strong>${sender}:</strong> ${message}`;
+      chatBox.appendChild(msgElem);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+  </script>
+</body>
+</html>
