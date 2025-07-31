@@ -1,19 +1,16 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, WebSocket, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from openai import OpenAI
+import openai
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
-# Initialize OpenAI client (new SDK)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 app = FastAPI()
 
-# Allow frontend JavaScript to talk to backend (CORS)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,33 +18,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static directory for HTML
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return FileResponse("static/index.html")
 
-@app.post("/chat")
-async def chat(request: Request):
+# Connected clients
+clients = set()
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    clients.add(websocket)
     try:
-        data = await request.json()
-        user_input = data.get("message", "")
-        print(f"[DEBUG] Received message: {user_input}")
+        while True:
+            message = await websocket.receive_text()
+            print(f"[DEBUG] Received: {message}")
 
-        # New syntax for v1.x OpenAI SDK
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": user_input},
-            ]
-        )
+            # Call OpenAI API
+            try:
+                completion = openai.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are a helpful assistant."},
+                        {"role": "user", "content": message},
+                    ]
+                )
+                reply = completion.choices[0].message.content
+            except Exception as e:
+                reply = f"[ERROR] {e}"
 
-        reply = response.choices[0].message.content
-        print(f"[DEBUG] GPT reply: {reply}")
-        return {"response": reply}
-
+            # Broadcast to all clients
+            for client in clients:
+                try:
+                    await client.send_text(f"{message}\n→ {reply}")
+                except:
+                    pass
     except Exception as e:
-        print(f"[ERROR] {e}")
-        return {"response": f"Error: {str(e)}"}
+        print(f"[DISCONNECT] {e}")
+    finally:
+        clients.remove(websocket)

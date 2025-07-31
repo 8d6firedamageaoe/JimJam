@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Chat with GPT</title>
+  <title>Collaborative Chat with GPT</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -17,6 +17,7 @@
       height: 300px;
       overflow-y: scroll;
       margin-bottom: 1rem;
+      white-space: pre-wrap;
     }
     .user-msg {
       color: blue;
@@ -27,7 +28,7 @@
   </style>
 </head>
 <body>
-  <h1>Chat with GPT</h1>
+  <h1>Collaborative Chat with GPT</h1>
   <div class="chat-box" id="chatBox"></div>
   <input type="text" id="userInput" placeholder="Type your message..." style="width: 80%;" />
   <button id="sendBtn">Send</button>
@@ -37,30 +38,24 @@
     const sendBtn = document.getElementById("sendBtn");
     const userInput = document.getElementById("userInput");
 
+    const socket = new WebSocket(`wss://${window.location.host}/ws`);
+
+    socket.onmessage = function(event) {
+      appendMessage("Shared", event.data, "bot-msg");
+    };
+
     sendBtn.addEventListener("click", sendMessage);
     userInput.addEventListener("keypress", function(e) {
       if (e.key === "Enter") sendMessage();
     });
 
-    async function sendMessage() {
+    function sendMessage() {
       const message = userInput.value.trim();
       if (!message) return;
 
+      socket.send(message);
       appendMessage("You", message, "user-msg");
       userInput.value = "";
-
-      try {
-        const response = await fetch("/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message })
-        });
-
-        const data = await response.json();
-        appendMessage("GPT", data.response, "bot-msg");
-      } catch (error) {
-        appendMessage("Error", error.toString(), "bot-msg");
-      }
     }
 
     function appendMessage(sender, message, className) {
