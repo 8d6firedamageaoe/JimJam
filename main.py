@@ -1,6 +1,6 @@
-from fastapi import FastAPI, WebSocket, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import openai
 import os
@@ -20,42 +20,44 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 async def root():
     return FileResponse("static/index.html")
 
-# Connected clients
-clients = set()
+
+# Shared chat state and client tracking
+chat_history = [{"role": "system", "content": "You are a helpful assistant."}]
+connected_clients = set()
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    clients.add(websocket)
+    connected_clients.add(websocket)
+
     try:
         while True:
-            message = await websocket.receive_text()
-            print(f"[DEBUG] Received: {message}")
+            data = await websocket.receive_text()
 
-            # Call OpenAI API
+            # Add user message to history
+            chat_history.append({"role": "user", "content": data})
+
+            # Get GPT response
             try:
-                completion = openai.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": message},
-                    ]
+                response = openai.chat.completions.create(
+                    model="gpt-4",
+                    messages=chat_history,
                 )
-                reply = completion.choices[0].message.content
+                reply = response.choices[0].message.content
             except Exception as e:
-                reply = f"[ERROR] {e}"
+                reply = f"[Error]: {str(e)}"
 
-            # Broadcast to all clients
-            for client in clients:
-                try:
-                    await client.send_text(f"{message}\n→ {reply}")
-                except:
-                    pass
-    except Exception as e:
-        print(f"[DISCONNECT] {e}")
-    finally:
-        clients.remove(websocket)
+            # Add reply to history
+            chat_history.append({"role": "assistant", "content": reply})
+
+            # Broadcast user message and GPT reply to all clients
+            for client in connected_clients:
+                await client.send_text(f"You: {data}")
+                await client.send_text(f"GPT: {reply}")
+
+    except WebSocketDisconnect:
+        connected_clients.remove(websocket)
