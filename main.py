@@ -1,39 +1,48 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from dotenv import load_dotenv
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 import openai
 import os
+from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
+
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# FastAPI app instance
 app = FastAPI()
 
-# Static and template configuration
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="static")
+# Allow frontend JavaScript to talk to backend (CORS)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Route
+# Mount static directory for HTML
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 @app.get("/", response_class=HTMLResponse)
-async def root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+async def root():
+    return FileResponse("static/index.html")
 
 @app.post("/chat")
 async def chat(request: Request):
-    form_data = await request.form()
-    user_input = form_data["user_input"]
+    try:
+        data = await request.json()
+        user_input = data.get("message", "")
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": user_input},
-        ]
-    )
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": user_input},
+            ]
+        )
 
-    reply = response.choices[0].message["content"]
-    return {"reply": reply}
+        reply = response.choices[0].message["content"]
+        return {"response": reply}
+
+    except Exception as e:
+        return {"response": f"Error: {str(e)}"}
